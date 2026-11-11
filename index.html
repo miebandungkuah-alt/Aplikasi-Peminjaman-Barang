@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PEMINJAMAN BARANG - SMK IBU KARTINI SEMARANG</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            800: '#0f2042',
+                            900: '#0b162c',
+                            950: '#070e1e',
+                        },
+                        brand: {
+                            blue: '#1e54e4',
+                            yellow: '#ffcc00',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f3f5f9;
+        }
+        .custom-shadow {
+            box-shadow: 0 10px 30px -5px rgba(15, 32, 66, 0.05);
+        }
+        .form-shadow {
+            box-shadow: 0 15px 35px -5px rgba(15, 32, 66, 0.08);
+        }
+        .left-accent-line {
+            border-left: 5px solid #1e54e4;
+        }
+        .left-orange-accent {
+            border-left: 4px solid #f59e0b;
+        }
+        .left-green-accent {
+            border-left: 4px solid #10b981;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen pb-12 flex flex-col">
+
+    <!-- Header Navigation Bar UI -->
+    <header class="bg-navy-900 text-white shadow-md sticky top-0 z-50 py-3.5 px-4 sm:px-8">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            
+            <!-- Branding Logo & School Name -->
+            <div class="flex items-center space-x-3.5">
+                <div class="bg-amber-400/20 text-amber-400 p-2.5 rounded-xl border border-amber-400/30 flex items-center justify-center">
+                    <i class="fa-solid fa-boxes-stacked text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-wider uppercase font-sans leading-none">PEMINJAMAN BARANG</h1>
+                    <p class="text-xs font-semibold text-amber-400 tracking-wider mt-1 uppercase">SMK IBU KARTINI SEMARANG</p>
+                </div>
+            </div>
+
+            <!-- System Live Clock -->
+            <div class="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/15 text-center min-w-[120px]">
+                <p class="text-[10px] uppercase font-bold tracking-widest text-slate-300">Waktu Sistem</p>
+                <p id="liveClock" class="text-lg font-extrabold tracking-wider text-white font-mono leading-tight">00.00.00</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Body -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 flex-1 w-full">
+        
+        <!-- Floating Toast Alert -->
+        <div id="toast" class="hidden fixed bottom-6 right-6 bg-navy-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 z-50 border border-slate-700 transition-all duration-300">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+            <span id="toastMessage" class="text-sm font-medium">Notifikasi</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- LEFT PANEL: Registration Form -->
+            <div class="lg:col-span-5">
+                <div class="bg-white rounded-2xl p-6 sm:p-7 form-shadow left-accent-line relative overflow-hidden">
+                    
+                    <!-- Header Title -->
+                    <div class="flex items-center space-x-3 mb-6">
+                        <i class="fa-solid fa-box-archive text-brand-blue text-xl"></i>
+                        <h2 class="text-lg font-bold text-navy-900 tracking-tight">Registrasi Peminjaman Barang</h2>
+                    </div>
+
+                    <form id="loanForm" class="space-y-4">
+                        
+                        <!-- Nama Lengkap Siswa -->
+                        <div>
+                            <label for="borrowerName" class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">NAMA LENGKAP PEMINJAM</label>
+                            <input type="text" id="borrowerName" required placeholder="Contoh: Naufal Rafif" 
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:bg-white text-sm font-medium text-slate-700 transition-all outline-none">
+                        </div>
+
+                        <!-- Kelas / Divisi (Ketik / Scan QR) -->
+                        <div>
+                            <label for="borrowerClass" class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">KELAS / DIVISI (KETIK / SCAN QR)</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="borrowerClass" required placeholder="Contoh: XII RPL 1" 
+                                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:bg-white text-sm font-medium text-slate-700 transition-all outline-none">
+                                <button type="button" onclick="window.simulateQRScan()" title="Scan QR Code Kelas" class="bg-sky-100 hover:bg-sky-200 text-brand-blue px-3.5 py-3 rounded-xl transition-colors border border-sky-200 flex items-center justify-center">
+                                    <i class="fa-solid fa-qrcode text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Nama Barang / Peralatan -->
+                        <div>
+                            <label for="itemName" class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">NAMA BARANG / PERALATAN</label>
+                            <input type="text" id="itemName" required placeholder="Contoh: Proyektor Epson EB-E500" 
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:bg-white text-sm font-medium text-slate-700 transition-all outline-none">
+                        </div>
+
+                        <!-- Jumlah -->
+                        <div>
+                            <label for="itemQty" class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">JUMLAH</label>
+                            <input type="number" id="itemQty" min="1" value="1" required 
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:bg-white text-sm font-medium text-slate-700 transition-all outline-none">
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="pt-2">
+                            <button type="submit" id="submitBtn" class="w-full bg-navy-900 hover:bg-navy-800 active:bg-navy-950 text-white font-bold py-3.5 rounded-xl uppercase tracking-wider text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2">
+                                <span>PROSES PINJAM</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: Tabs, Search & Item List -->
+            <div class="lg:col-span-7">
+                <div class="bg-white rounded-2xl p-6 custom-shadow border border-slate-100">
+                    
+                    <!-- Tabs Navigation -->
+                    <div class="flex border-b border-slate-200 mb-5">
+                        <button id="tabDipinjam" onclick="window.switchTab('dipinjam')" class="pb-3 px-2 font-bold text-sm text-brand-blue border-b-2 border-brand-blue transition-all mr-6">
+                            Sedang Dipinjam
+                        </button>
+                        <button id="tabKembali" onclick="window.switchTab('dikembalikan')" class="pb-3 px-2 font-semibold text-sm text-slate-400 hover:text-slate-600 transition-all">
+                            Sudah Kembali
+                        </button>
+                    </div>
+
+                    <!-- Search & Action Toolbar -->
+                    <div class="flex flex-col sm:flex-row gap-3 justify-between items-center mb-5">
+                        <div class="relative w-full sm:w-auto flex-1">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                            </div>
+                            <input type="text" id="searchInput" placeholder="Cari nama peminjam, kelas, atau barang..." 
+                                class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition-all">
+                        </div>
+
+                        <button onclick="window.exportToCSV()" class="w-full sm:w-auto bg-emerald-100 hover:bg-emerald-200 text-emerald-700 border border-emerald-200 font-bold px-4 py-2.5 rounded-xl text-xs tracking-wider uppercase transition-colors flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-download"></i>
+                            <span>EKSPOR LAPORAN</span>
+                        </button>
+                    </div>
+
+                    <!-- Section Label -->
+                    <div class="mb-4">
+                        <h3 id="sectionTitle" class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            DAFTAR AKTIF (SEDANG DIPINJAM)
+                        </h3>
+                    </div>
+
+                    <!-- List Cards Container -->
+                    <div id="itemsContainer" class="space-y-4 min-h-[220px]">
+                        <!-- Dynamic Card Items Rendered Here -->
+                    </div>
+
+                    <!-- Empty State View -->
+                    <div id="emptyState" class="hidden py-12 text-center">
+                        <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-100 text-slate-400 mb-3">
+                            <i class="fa-solid fa-inbox text-xl"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-500">Tidak ada data peminjaman ditemukan</p>
+                    </div>
+
+                    <!-- Bottom Footer Stats & Reset -->
+                    <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center text-xs font-bold text-slate-600">
+                        <div>
+                            Total Item: <span id="totalItemCount" class="text-navy-900 font-extrabold text-sm ml-1">0</span>
+                        </div>
+                        <button onclick="window.resetAllData()" class="text-rose-500 hover:text-rose-700 transition-colors font-semibold">
+                            Reset Seluruh Data
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal Konfirmasi Hapus / Reset -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+            <h3 class="font-bold text-slate-800 text-base mb-2">Konfirmasi Tindakan</h3>
+            <p id="confirmModalMessage" class="text-xs text-slate-500 mb-5">Apakah Anda yakin ingin melakukan tindakan ini?</p>
+            <div class="flex justify-end space-x-2">
+                <button onclick="window.closeConfirmModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors">Batal</button>
+                <button id="confirmModalBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-colors">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic (Firebase Connected) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Setup & Initialization with User's Custom Configuration
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'peminjaman-barang-app';
+        
+        // Custom Firebase Config from User Project
+        const firebaseConfig = {
+            apiKey: "AIzaSyAFQCvYAH7W-VNIh0rHZljOn7nro873E1w",
+            authDomain: "pinjaman-barang-8deac.firebaseapp.com",
+            projectId: "pinjaman-barang-8deac",
+            storageBucket: "pinjaman-barang-8deac.firebasestorage.app",
+            messagingSenderId: "513311087193",
+            appId: "1:513311087193:web:4933edde1d83f9a362af48",
+            measurementId: "G-3PTJYXTPXM"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // State Management
+<!-- ... existing code -->
