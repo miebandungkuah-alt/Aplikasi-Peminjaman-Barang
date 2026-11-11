@@ -226,13 +226,10 @@
     <!-- JavaScript Application Logic (Firebase Connected) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Setup & Initialization with User's Custom Configuration
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'peminjaman-barang-app';
-        
-        // Custom Firebase Config from User Project
         const firebaseConfig = {
             apiKey: "AIzaSyAFQCvYAH7W-VNIh0rHZljOn7nro873E1w",
             authDomain: "pinjaman-barang-8deac.firebaseapp.com",
@@ -248,4 +245,335 @@
         const db = getFirestore(app);
 
         // State Management
-<!-- ... existing code -->
+        let itemsData = [];
+        let currentTab = 'dipinjam';
+        let searchQuery = '';
+        let pendingAction = null;
+
+        // Collection Reference
+        const LOANS_COLLECTION = 'loans';
+
+        // Initialize App & Authentication
+        async function initApp() {
+            startClock();
+            try {
+                await signInAnonymously(auth);
+            } catch (err) {
+                console.warn("Auth error, continuing with public rules fallback:", err);
+            }
+            subscribeToFirestore();
+        }
+
+        // Real-time Firestore Listener
+        function subscribeToFirestore() {
+            const colRef = collection(db, LOANS_COLLECTION);
+            onSnapshot(colRef, (snapshot) => {
+                itemsData = snapshot.docs.map(docSnap => ({
+                    id: docSnap.id,
+                    ...docSnap.data()
+                }));
+                // Sort by date created descending
+                itemsData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderUI();
+            }, (error) => {
+                console.error("Firestore subscription error:", error);
+                showToast("Gagal terhubung ke database cloud", "error");
+            });
+        }
+
+        // Realtime Clock Function
+        function startClock() {
+            const clockEl = document.getElementById('liveClock');
+            function update() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                if (clockEl) {
+                    clockEl.textContent = `${hours}.${minutes}.${seconds}`;
+                }
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
+        // UI Render Function
+        function renderUI() {
+            const container = document.getElementById('itemsContainer');
+            const emptyState = document.getElementById('emptyState');
+            const sectionTitle = document.getElementById('sectionTitle');
+            const totalCountEl = document.getElementById('totalItemCount');
+
+            // Filter by tab status and search query
+            const filtered = itemsData.filter(item => {
+                const matchesTab = item.status === currentTab;
+                const matchesSearch = searchQuery === '' || 
+                    item.borrowerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    item.borrowerClass.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    item.itemName.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesTab && matchesSearch;
+            });
+
+            totalCountEl.textContent = filtered.length;
+
+            if (currentTab === 'dipinjam') {
+                sectionTitle.textContent = "DAFTAR AKTIF (SEDANG DIPINJAM)";
+            } else {
+                sectionTitle.textContent = "HISTORI PENGEMBALIAN (SUDAH KEMBALI)";
+            }
+
+            container.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                const isDipinjam = item.status === 'dipinjam';
+                const accentClass = isDipinjam ? 'left-orange-accent' : 'left-green-accent';
+
+                card.className = `bg-slate-50 border border-slate-200/80 rounded-2xl p-4 sm:p-5 transition-all hover:shadow-md ${accentClass} relative flex flex-col justify-between gap-4`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center space-x-2 mb-1.5 flex-wrap gap-y-1">
+                                <span class="bg-blue-100 text-brand-blue font-bold text-[10px] px-2.5 py-0.5 rounded-md tracking-wider uppercase">${escapeHtml(item.borrowerClass)}</span>
+                                <span class="${isDipinjam ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} font-bold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1.5 uppercase">
+                                    <span class="w-1.5 h-1.5 rounded-full ${isDipinjam ? 'bg-amber-500' : 'bg-emerald-500'}"></span>
+                                    ${isDipinjam ? 'DIPINJAM' : 'DIKEMBALIKAN'}
+                                </span>
+                            </div>
+                            <h4 class="text-base font-extrabold text-navy-900 tracking-tight uppercase">${escapeHtml(item.borrowerName)}</h4>
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-slate-500 mt-1">
+                                <span class="text-brand-blue font-bold">${escapeHtml(item.itemName)}</span>
+                                <span>•</span>
+                                <span class="bg-slate-200/70 px-2 py-0.5 rounded text-[11px]">${item.itemQty} Unit</span>
+                            </div>
+                        </div>
+                        <button onclick="window.confirmDelete('${item.id}')" title="Hapus Data" class="text-slate-300 hover:text-rose-500 transition-colors p-1">
+                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        </button>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-slate-400 text-[11px] font-medium">
+                        <div>
+                            <span>PINJAM: <strong class="text-slate-600">${item.loanDate}</strong></span>
+                            ${item.returnDate ? `<span class="ml-2">| KEMBALI: <strong class="text-slate-600">${item.returnDate}</strong></span>` : ''}
+                        </div>
+                        ${isDipinjam ? `
+                            <button onclick="window.returnItem('${item.id}')" class="w-full sm:w-auto bg-brand-blue hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs tracking-wider uppercase transition-all shadow-sm hover:shadow flex items-center justify-center space-x-1.5">
+                                <i class="fa-solid fa-box-open text-xs"></i>
+                                <span>KEMBALIKAN BARANG</span>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Global Event Handlers Explicitly Bounded to Window
+        window.switchTab = function(tab) {
+            currentTab = tab;
+            const tabDipinjam = document.getElementById('tabDipinjam');
+            const tabKembali = document.getElementById('tabKembali');
+
+            if (tab === 'dipinjam') {
+                tabDipinjam.className = "pb-3 px-2 font-bold text-sm text-brand-blue border-b-2 border-brand-blue transition-all mr-6";
+                tabKembali.className = "pb-3 px-2 font-semibold text-sm text-slate-400 hover:text-slate-600 transition-all";
+            } else {
+                tabKembali.className = "pb-3 px-2 font-bold text-sm text-brand-blue border-b-2 border-brand-blue transition-all";
+                tabDipinjam.className = "pb-3 px-2 font-semibold text-sm text-slate-400 hover:text-slate-600 transition-all mr-6";
+            }
+            renderUI();
+        };
+
+        window.simulateQRScan = function() {
+            const classes = ['X RPL 1', 'XI TKJ 2', 'XII RPL 1', 'X AKL 3', 'XI OTKP 1'];
+            const randomClass = classes[Math.floor(Math.random() * classes.length)];
+            document.getElementById('borrowerClass').value = randomClass;
+            showToast(`QR Code Terdeteksi: Kelas ${randomClass}`);
+        };
+
+        window.returnItem = async function(id) {
+            try {
+                const now = new Date();
+                const returnDateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + `, ${String(now.getHours()).padStart(2,'0')}.${String(now.getMinutes()).padStart(2,'0')}`;
+                
+                const itemRef = doc(db, LOANS_COLLECTION, id);
+                await updateDoc(itemRef, {
+                    status: 'dikembalikan',
+                    returnDate: returnDateStr
+                });
+                showToast("Barang berhasil dikembalikan!");
+            } catch (err) {
+                console.error("Error returning item:", err);
+                showToast("Gagal memperbarui status", "error");
+            }
+        };
+
+        window.confirmDelete = function(id) {
+            document.getElementById('confirmModalMessage').textContent = "Apakah Anda yakin ingin menghapus data peminjaman ini secara permanen?";
+            const confirmBtn = document.getElementById('confirmModalBtn');
+            confirmBtn.onclick = async () => {
+                try {
+                    await deleteDoc(doc(db, LOANS_COLLECTION, id));
+                    window.closeConfirmModal();
+                    showToast("Data peminjaman berhasil dihapus!");
+                } catch (err) {
+                    console.error("Error deleting item:", err);
+                    showToast("Gagal menghapus data", "error");
+                }
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        };
+
+        window.resetAllData = function() {
+            if (itemsData.length === 0) {
+                showToast("Tidak ada data untuk dihapus", "error");
+                return;
+            }
+            document.getElementById('confirmModalMessage').textContent = "Apakah Anda yakin ingin MENGHAPUS SELURUH DATA peminjaman dari database?";
+            const confirmBtn = document.getElementById('confirmModalBtn');
+            confirmBtn.onclick = async () => {
+                try {
+                    const snapshot = await getDocs(collection(db, LOANS_COLLECTION));
+                    const deletePromises = snapshot.docs.map(docSnap => deleteDoc(doc(db, LOANS_COLLECTION, docSnap.id)));
+                    await Promise.all(deletePromises);
+                    window.closeConfirmModal();
+                    showToast("Seluruh data telah dibersihkan!");
+                } catch (err) {
+                    console.error("Error resetting data:", err);
+                    showToast("Gagal mereset data", "error");
+                }
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        };
+
+        window.closeConfirmModal = function() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        };
+
+        window.exportToCSV = function() {
+            if (itemsData.length === 0) {
+                showToast("Tidak ada data untuk diekspor", "error");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "No,Nama Peminjam,Kelas,Nama Barang,Jumlah,Status,Tanggal Pinjam,Tanggal Kembali\n";
+
+            itemsData.forEach((item, index) => {
+                const row = [
+                    index + 1,
+                    `"${item.borrowerName}"`,
+                    `"${item.borrowerClass}"`,
+                    `"${item.itemName}"`,
+                    item.itemQty,
+                    `"${item.status.toUpperCase()}"`,
+                    `"${item.loanDate}"`,
+                    `"${item.returnDate || '-'}"`
+                ].join(",");
+                csvContent += row + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `laporan_peminjaman_barang_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Laporan CSV berhasil diunduh!");
+        };
+
+        // Form Submit Handler
+        document.getElementById('loanForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const borrowerName = document.getElementById('borrowerName').value.trim();
+            const borrowerClass = document.getElementById('borrowerClass').value.trim();
+            const itemName = document.getElementById('itemName').value.trim();
+            const itemQty = parseInt(document.getElementById('itemQty').value) || 1;
+
+            if (!borrowerName || !borrowerClass || !itemName) {
+                showToast("Mohon lengkapi seluruh formulir", "error");
+                return;
+            }
+
+            const now = new Date();
+            const loanDateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + `, ${String(now.getHours()).padStart(2,'0')}.${String(now.getMinutes()).padStart(2,'0')}`;
+
+            const newItem = {
+                borrowerName,
+                borrowerClass,
+                itemName,
+                itemQty,
+                status: 'dipinjam',
+                loanDate: loanDateStr,
+                returnDate: null,
+                createdAt: Date.now()
+            };
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>MENYIMPAN...</span>`;
+
+            try {
+                await addDoc(collection(db, LOANS_COLLECTION), newItem);
+                document.getElementById('loanForm').reset();
+                showToast("Peminjaman berhasil dicatat!");
+            } catch (err) {
+                console.error("Error adding loan:", err);
+                showToast("Gagal menyimpan data ke database", "error");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>PROSES PINJAM</span>`;
+            }
+        });
+
+        // Search Input Listener
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value.trim();
+            renderUI();
+        });
+
+        // Toast Notification Helper
+        function showToast(msg, type = "success") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = msg;
+            if (type === 'error') {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400 text-lg";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Helper Escape HTML
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+        }
+
+        // Initialize App on DOM Content Loaded
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
